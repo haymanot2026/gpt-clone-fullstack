@@ -16,4 +16,18 @@ const dbConnection = mysql.createPool({
   connectTimeout: 20000,
 });
 
+dbConnection.getConnection()
+  .then((connection) => {
+    console.log("✅ MySQL connection successful");
+    connection.release();
+  })
+  .catch((error) => {
+    console.error("❌ MySQL connection failed:", {
+      code: error.code,
+      message: error.message,
+      address: error.address,
+      port: error.port,
+    });
+  });
+
 export default dbConnection;
