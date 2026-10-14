@@ -1,4 +1,14 @@
+
 import mysql from "mysql2/promise";
+
+console.log("Database configuration check:", {
+  hostConfigured: Boolean(process.env.DB_HOST),
+  portConfigured: Boolean(process.env.DB_PORT),
+  userConfigured: Boolean(process.env.DB_USER),
+  passwordConfigured: Boolean(process.env.DB_PASSWORD),
+  databaseConfigured: Boolean(process.env.DB_NAME),
+  hostHasProtocol: /^https?:\/\//i.test(process.env.DB_HOST || ""),
+});
 
 const dbConnection = mysql.createPool({
   host: process.env.DB_HOST,
@@ -12,11 +22,13 @@ const dbConnection = mysql.createPool({
   charset: "utf8mb4",
   ssl: {
     rejectUnauthorized: true,
+    ca: process.env.CA_CERTIFICATE,
   },
   connectTimeout: 20000,
 });
 
-dbConnection.getConnection()
+dbConnection
+  .getConnection()
   .then((connection) => {
     console.log("✅ MySQL connection successful");
     connection.release();
