@@ -1,11 +1,33 @@
-
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mainRouter from "./src/api/main.route.js";
 import { errorHandler } from "./src/middleware/error-handler.js";
+// Import the database connection pool configuration
+import db from "./db/db.config.js"; 
 
 const app = express();
+
+// Automatically create the conversations table if it doesn't exist on server startup
+const initDatabase = async () => {
+  try {
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS conversations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        role VARCHAR(50) NOT NULL,
+        content TEXT NOT NULL,
+        token_count INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await db.execute(createTableQuery);
+    console.log("🔎 conversations table successfully verified/created inside index.js!");
+  } catch (err) {
+    console.error("❌ Failed to create table inside index.js:", err.message);
+  }
+};
+// Trigger the database initialization instantly
+initDatabase();
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -21,7 +43,7 @@ app.use(
       }
 
       console.error("Blocked CORS origin:", origin);
-return callback(new Error(`CORS blocked origin: ${origin}`));
+      return callback(new Error(`CORS blocked origin: ${origin}`));
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
