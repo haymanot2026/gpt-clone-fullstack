@@ -39,8 +39,13 @@ export const getMessageById = async (messageId) => {
 export const createUserMessage = async (question) => {
   const query = `
     INSERT INTO conversations (content, role)
-    VALUES (?, "user")
+    VALUES (?, ?)
   `;
+
+  const [result] = await db.execute(query, [question, "user"]);
+
+  return result.insertId;
+};
 
   const [result] = await dbConnection.execute(query, [question]);
 
@@ -53,10 +58,10 @@ export const createAssistantMessage = async ({ content, tokenCount }) => {
     VALUES (?, ?, ?)
   `;
 
-  const [result] = await dbConnection.execute(query, [
+  const [result] = await db.execute(query, [
     "assistant",
     content,
-    tokenCount,
+    tokenCount ?? 0,
   ]);
 
   return result.insertId;
