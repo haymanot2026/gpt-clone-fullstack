@@ -1,17 +1,21 @@
+
 import dbConnection from "../../../../db/db.config.js";
 
 export const getRecentConversationRows = async (limit = 5) => {
   const normalizedLimit = Number.parseInt(limit, 10);
 
   const safeLimit =
-    Number.isNaN(normalizedLimit) || normalizedLimit <= 0 ? 5 : normalizedLimit;
+    Number.isInteger(normalizedLimit) && normalizedLimit > 0
+      ? Math.min(normalizedLimit, 20)
+      : 5;
 
-  const [rows] = await dbConnection.execute(`
-    SELECT id, role, content, created_at
-    FROM conversations
-    ORDER BY id DESC
-    LIMIT ${safeLimit}
-  `);
+  const [rows] = await dbConnection.execute(
+    `SELECT id, role, content, token_count, created_at
+     FROM conversations
+     ORDER BY id DESC
+     LIMIT ?`,
+    [safeLimit]
+  );
 
   return rows.reverse();
 };
@@ -22,11 +26,11 @@ export const getMessageById = async (messageId) => {
      FROM conversations
      WHERE id = ?
      LIMIT 1`,
-    [messageId],
+    [messageId]
   );
 
   if (!rows[0]) return null;
-  //shaping db rows into clean structure to match the expected structure for the frontend
+
   return {
     id: rows[0].id,
     role: rows[0].role,
@@ -42,12 +46,10 @@ export const createUserMessage = async (question) => {
     VALUES (?, ?)
   `;
 
-  const [result] = await db.execute(query, [question, "user"]);
-
-  return result.insertId;
-};
-
-  const [result] = await dbConnection.execute(query, [question]);
+  const [result] = await dbConnection.execute(query, [
+    question,
+    "user",
+  ]);
 
   return result.insertId;
 };
@@ -58,7 +60,7 @@ export const createAssistantMessage = async ({ content, tokenCount }) => {
     VALUES (?, ?, ?)
   `;
 
-  const [result] = await db.execute(query, [
+  const [result] = await dbConnection.execute(query, [
     "assistant",
     content,
     tokenCount ?? 0,
