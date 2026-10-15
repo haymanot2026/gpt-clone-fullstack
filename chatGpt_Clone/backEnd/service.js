@@ -1,7 +1,28 @@
 import db from "../../../../db/db.config.js";
 import { GoogleGenAI } from "@google/genai";
 
-// gemini-2.5-flash ተቀይሯል
+// Check if the table exists on startup and create it if it doesn't
+const initDatabase = async () => {
+  try {
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS conversations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        role VARCHAR(50) NOT NULL,
+        content TEXT NOT NULL,
+        token_count INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await db.execute(createTableQuery);
+    console.log("🔎 conversations table successfully verified/created!");
+  } catch (err) {
+    console.error("❌ Failed to create database table:", err.message);
+  }
+};
+// Initialize table creation immediately
+initDatabase();
+
+// Fallback to gemini-2.5-flash if GEMINI_MODEL is not set in environment variables
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 const geminiClient = new GoogleGenAI({
@@ -12,7 +33,7 @@ export const getRecentConversationrows = async (limit = 5) => {
   const normlizedLimit = Number.parseInt(limit, 10);
   const safeLimit = Number.isNaN(normlizedLimit) || normlizedLimit <= 0 ? 5 : normlizedLimit;
 
-  // 2. 
+  // Fetch recent message rows from the database
   const [rows] = await db.execute(
     `SELECT id, role, content, created_at
      FROM conversations
@@ -38,9 +59,9 @@ const generateAssistsntAnswer = async ({ question, historyRows }) => {
     history: formattedHistory,
   });
 
-  // 
+  // Retry configuration for Gemini API calls
   let retries = 3;
-  let delay = 2000; // 
+  let delay = 2000; // Delay in milliseconds
 
   while (retries > 0) {
     try {
@@ -53,20 +74,18 @@ const generateAssistsntAnswer = async ({ question, historyRows }) => {
         totalTokens: result.usageMetadata.totalTokenCount ?? 0,
       };
     } catch (error) {
-      // 
+      // Retry mechanism if Gemini API returns a 503 Service Unavailable error
       if (error.message?.includes("503") && retries > 1) {
-        console.log(`Gemini ቢዚ ነው፣ ከ ${delay/1000} ሰከንድ በኋላ ድጋሚ ይሞከራል...`);
+        console.log(`Gemini is busy, retrying in ${delay/1000} seconds...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         retries--;
-        delay *= 2; // 
+        delay *= 2; // Exponential backoff
       } else {
-        throw error; // 
+        throw error; // Re-throw any other critical errors
       }
     }
   }
 };
-
-
 
 export async function createConversationService(question) {
   try {
