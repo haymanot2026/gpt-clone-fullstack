@@ -22,6 +22,17 @@ const initDatabase = async () => {
 // Initialize table creation immediately
 initDatabase();
 
+// Helper function to fetch a specific message by its database ID
+export const getMessageById = async (id) => {
+  const [rows] = await db.execute(
+    `SELECT id, role, content, token_count, created_at 
+     FROM conversations 
+     WHERE id = ?`,
+    [id]
+  );
+  return rows[0] || null;
+};
+
 // Fallback to gemini-2.5-flash if GEMINI_MODEL is not set in environment variables
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -97,9 +108,10 @@ export async function createConversationService(question) {
 
     const historyRows = await getRecentConversationrows(5);
 
+    // FIXED: Changed "user" to 'user' (single quotes) to fix MySQL field list error
     const [result] = await db.execute(
       `INSERT INTO conversations (content, role)
-       VALUES (?, "user")`,
+       VALUES (?, 'user')`,
       [question],
     );
 
@@ -108,10 +120,11 @@ export async function createConversationService(question) {
       historyRows,
     });
 
+    // FIXED: Changed "assistant" to 'assistant' (single quotes) to fix MySQL field list error
     const [creatAssistantMessageResult] = await db.execute(
       `INSERT INTO conversations (content, role, token_count)
-       VALUES (?, ?, ?)`,
-      [text, "assistant", totalTokens],
+       VALUES (?, 'assistant', ?)`,
+      [text, totalTokens],
     );
 
     const userConversation = await getMessageById(result.insertId);
