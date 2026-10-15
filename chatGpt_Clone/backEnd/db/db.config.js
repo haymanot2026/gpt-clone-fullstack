@@ -7,7 +7,6 @@ console.log("Database configuration check:", {
   userConfigured: Boolean(process.env.DB_USER),
   passwordConfigured: Boolean(process.env.DB_PASSWORD),
   databaseConfigured: Boolean(process.env.DB_NAME),
-  hostHasProtocol: /^https?:\/\//i.test(process.env.DB_HOST || ""),
 });
 
 const dbConnection = mysql.createPool({
@@ -20,21 +19,42 @@ const dbConnection = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   charset: "utf8mb4",
+  ssl: {
+    rejectUnauthorized: true,
+    ca: process.env.CA_CERTIFICATE,
+  },
   connectTimeout: 20000,
 });
 
 dbConnection
   .getConnection()
-  .then((connection) => {
+  .then(async (connection) => {
     console.log("✅ MySQL connection successful");
+
+    const [rows] = await connection.query(`
+      SELECT
+        DATABASE() AS db,
+        @@hostname AS server,
+        @@port AS port
+    `);
+
+    console.log("🔎 Database diagnostic:", rows);
+
+    const [tables] = await connection.query(`
+      SELECT TABLE_SCHEMA, TABLE_NAME
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'conversations'
+    `);
+
+    console.log("🔎 Conversations table:", tables);
+
     connection.release();
   })
   .catch((error) => {
-    console.error("❌ MySQL connection failed:", {
+    console.error("❌ MySQL connection/diagnostic failed:", {
       code: error.code,
       message: error.message,
-      address: error.address,
-      port: error.port,
     });
   });
 
